@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Aviator Predictor</title>
+    <style>
+        body {
+    font-family: 'Poppins', sans-serif;
+    background: url('https://i.ibb.co/WBm8czf/images-1-5.jpg') no-repeat center center fixed;
+    background-size: cover;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    backdrop-filter: blur(5px);
+    color: #fff;
+}
+
+.container {
+    padding: 30px;
+    text-align: center;
+    max-width: 340px;
+    max-height:510px;
+    width: 90%;
+    transition: transform 0.3s ease;
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 16px;
+    box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1);
+    backdrop-filter: blur(5px);
+    -webkit-backdrop-filter: blur(5px);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+h1 {
+    color: #333;
+}
+
+.input-section {
+    margin-top: 20px;
+}
+
+input[type="text"] {
+    width: 100%;
+    padding: 10px;
+    margin-top: 10px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+}
+
+input[type="range"] {
+    width: 100%;
+}
+
+button {
+    padding: 0.4em 3em;
+    margin-top: 15px;
+    border: none;
+    outline: none;
+    color: rgb(255, 255, 255);
+    background: #111;
+    cursor: pointer;
+    position: relative;
+    z-index: 0;
+    border-radius: 10px;
+    font-size: 14px;
+    user-select: none;
+    -webkit-user-select: none;
+    touch-action: manipulation;
+    transition: transform 0.2s ease;
+}
+
+button:before {
+    content: "";
+    background: linear-gradient(45deg,
+            #ff0000,
+            #ff7300,
+            #fffb00,
+            #48ff00,
+            #00ffd5,
+            #002bff,
+            #7a00ff,
+            #ff00c8,
+            #ff0000);
+    position: absolute;
+    top: -2px;
+    left: -2px;
+    background-size: 400%;
+    z-index: -1;
+    filter: blur(5px);
+    -webkit-filter: blur(5px);
+    width: calc(100% + 4px);
+    height: calc(100% + 4px);
+    animation: glowing-button 20s linear infinite;
+    transition: opacity 0.3s ease-in-out;
+    border-radius: 10px;
+}
+
+@keyframes glowing-button {
+    0% {
+        background-position: 0 0;
+    }
+
+    50% {
+        background-position: 400% 0;
+    }
+
+    100% {
+        background-position: 0 0;
+    }
+}
+
+button:after {
+    z-index: -1;
+    content: "";
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    background: #222;
+    left: 0;
+    top: 0;
+    border-radius: 10px;
+}
+
+button:hover {
+    background-color: green;
+    transform: translateY(-3px);
+}
+
+#resultDisplay, #suggestions {
+    margin-top: 20px;
+    font-size: 18px;
+}
+
+canvas {
+    margin-top: 20px;
+}
+
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="input-section">
+            <label for="previousResults">Enter Previous Results:</label>
+            <input type="text" id="previousResults" placeholder="e.g., 1.2, 3.4, 2.5">
+        </div>
+        <div class="input-section">
+            <label for="riskTolerance">Risk Tolerance (1-10):</label>
+            <input type="range" id="riskTolerance" min="1" max="10" step="1" value="5">
+        </div>
+        <div class="prediction-section">
+            <button id="predictBtn">Predict</button>
+            <div id="resultDisplay"></div>
+            <div id="suggestions"></div>
+        </div>
+
+        <div class="chart-section">
+            <canvas id="predictionChart" width="400" height="200"></canvas>
+        </div>
+    </div>
+    
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+document.addEventListener('DOMContentLoaded', function () {
+    const predictBtn = document.getElementById('predictBtn');
+    const previousResultsInput = document.getElementById('previousResults');
+    const resultDisplay = document.getElementById('resultDisplay');
+    const suggestions = document.getElementById('suggestions');
+    const riskToleranceInput = document.getElementById('riskTolerance');
+
+    let chartInstance = null; // To track the chart instance
+
+    predictBtn.addEventListener('click', () => {
+        const previousResults = previousResultsInput.value.split(',').map(num => parseFloat(num.trim()));
+        const riskTolerance = riskToleranceInput.value;
+
+        if (previousResults.length > 0) {
+            const predictionData = calculateAdvancedPrediction(previousResults, riskTolerance);
+            displayPrediction(predictionData.prediction, predictionData.risk, predictionData.suggestions);
+            updateChart(previousResults, predictionData.prediction);
+        } else {
+            resultDisplay.innerHTML = 'Please enter valid previous results.';
+        }
+    });
+
+    function calculateAdvancedPrediction(results, riskTolerance) {
+        const weightedAverage = calculateWeightedAverage(results);
+        const volatility = calculateVolatility(results);
+
+        const prediction = weightedAverage * (1 + volatility * ((10 - riskTolerance) / 10));
+        const risk = volatility * ((10 - riskTolerance) / 10);
+        const suggestions = generateRiskManagementSuggestions(risk, riskTolerance);
+
+        return { prediction, risk, suggestions };
+    }
+
+    function calculateWeightedAverage(results) {
+        const weights = results.map((_, index) => index + 1); // Weighting recent results more
+        const weightedSum = results.reduce((acc, num, index) => acc + num * weights[index], 0);
+        const totalWeights = weights.reduce((acc, weight) => acc + weight, 0);
+        return weightedSum / totalWeights; // Calculate weighted average
+    }
+
+    function calculateVolatility(results) {
+        const avg = results.reduce((a, b) => a + b, 0) / results.length;
+        const variance = results.reduce((a, b) => a + Math.pow(b - avg, 2), 0) / results.length;
+        return Math.sqrt(variance); // Standard deviation as volatility
+    }
+
+    function generateRiskManagementSuggestions(risk, riskTolerance) {
+        if (riskTolerance >= 8) {
+            return "High risk tolerance detected. Consider using larger bets but cash out early if multiplier reaches a safe level.";
+        } else if (riskTolerance >= 5) {
+            return "Medium risk tolerance detected. Moderate bets with balanced cashout strategy.";
+        } else {
+            return "Low risk tolerance detected. Use smaller bets and cash out as soon as multipliers reach a safe zone.";
+        }
+    }
+
+    function displayPrediction(prediction, risk, suggestionsText) {
+        resultDisplay.innerHTML = `Next Prediction: x${prediction.toFixed(2)} (Risk Factor: ${risk.toFixed(2)})`;
+        suggestions.innerHTML = suggestionsText;
+    }
+
+    function updateChart(previousResults, prediction) {
+        const ctx = document.getElementById('predictionChart').getContext('2d');
+
+        // If there's an existing chart, destroy it before creating a new one
+        if (chartInstance) {
+            chartInstance.destroy();
+        }
+
+        // Create the new chart
+        chartInstance = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: Array(previousResults.length).fill().map((_, i) => `Round ${i + 1}`),
+                datasets: [{
+                    label: 'Previous Results',
+                    data: previousResults,
+                    borderColor: 'rgba(99, 132, 255, 1)',
+                    fill: false
+                }, {
+                    label: 'Prediction',
+                    data: [...previousResults, prediction],
+                    borderColor: 'rgba(255, 99, 132, 1)',
+                    fill: false
+                }]
+            }
+        });
+    }
+});
+
+    </script>
+</body>
+</html>
